@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { players, maps } from "@/db/schema";
 import { AddPlayerForm } from "@/components/add-player-form";
 import { LobbyManager } from "@/components/lobby-manager";
-import { MapVeto } from "@/components/map-veto";
 
 export default async function Home() {
   const [allPlayers, allMaps] = await Promise.all([
@@ -38,13 +37,8 @@ export default async function Home() {
 
         {/* 3. LOBBY & TIMES (Agora com o Banner VS) */}
         <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 min-h-[300px]">
-            <LobbyManager allPlayers={allPlayers} />
+            <LobbyManager allPlayers={allPlayers} allMaps={allMaps} />
         </div>
-
-        {/* 4. MAP VETOS (Com lógica de turnos) */}
-        <section className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
-             <MapVeto maps={allMaps} />
-        </section>
 
         {/* 5. PRÓXIMOS JOGOS (Placeholder) */}
         <div className="bg-zinc-900/30 border-2 border-dashed border-zinc-800 rounded-xl p-8 text-center opacity-50">
