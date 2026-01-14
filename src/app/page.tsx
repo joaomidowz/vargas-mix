@@ -1,77 +1,55 @@
-// Arquivo: src/app/page.tsx
+// src/app/page.tsx
 import { db } from "@/lib/db";
-import { players, maps } from "@/db/schema"; // <--- Adicione 'maps' aqui
-import { deletePlayer } from "./actions";
+import { players, maps } from "@/db/schema";
 import { AddPlayerForm } from "@/components/add-player-form";
-import { MapVeto } from "@/components/map-veto"; // <--- Importe o componente novo
+import { LobbyManager } from "@/components/lobby-manager";
+import { MapVeto } from "@/components/map-veto";
 
 export default async function Home() {
-  // Buscamos Players E Mapas em paralelo
   const [allPlayers, allMaps] = await Promise.all([
     db.select().from(players),
     db.select().from(maps)
   ]);
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100 p-8">
-      <div className="max-w-4xl mx-auto space-y-12"> {/* Aumentei max-w para caber os mapas */}
-
-        {/* Cabeçalho */}
-        <div className="text-center space-y-2">
-          <h1 className="text-5xl font-black text-yellow-500 tracking-tighter italic transform -skew-x-12">
+    <main className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* 1. O TÍTULO (Restaurado conforme pedido) */}
+        <div className="text-center space-y-2 pb-6 border-b border-zinc-800">
+          <h1 className="text-5xl md:text-6xl font-black text-yellow-500 tracking-tighter italic transform -skew-x-12">
             VARGAS <span className="text-white">MIX</span>
           </h1>
           <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">
-            Manager System v1.0
+            MANAGER SYSTEM V1.0
           </p>
         </div>
 
-        {/* --- SEÇÃO DE MAPAS (NOVO) --- */}
-        <section className="bg-zinc-900/30 p-6 rounded-xl border border-zinc-800 backdrop-blur-sm">
-          <MapVeto maps={allMaps} />
+        {/* 2. ADICIONAR PLAYER */}
+        <div className="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800 shadow-lg">
+            <div className="flex items-center gap-3 mb-2">
+                <div className="bg-green-500/10 p-2 rounded-full text-green-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </div>
+                <h2 className="font-bold text-zinc-300">Novo Operador</h2>
+            </div>
+            <AddPlayerForm />
+        </div>
+
+        {/* 3. LOBBY & TIMES (Agora com o Banner VS) */}
+        <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 min-h-[300px]">
+            <LobbyManager allPlayers={allPlayers} />
+        </div>
+
+        {/* 4. MAP VETOS (Com lógica de turnos) */}
+        <section className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
+             <MapVeto maps={allMaps} />
         </section>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Coluna da Esquerda: Formulário */}
-          <div className="space-y-6">
-            <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
-              <h2 className="text-xl font-semibold mb-4 text-yellow-500">Novo Operador</h2>
-              <AddPlayerForm />
-            </div>
-          </div>
-
-          {/* Coluna da Direita: Lista */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-zinc-300 flex justify-between">
-              <span>Lobby</span>
-              <span className="text-zinc-500 text-sm">{allPlayers.length} players</span>
-            </h2>
-
-            <div className="grid gap-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-              {allPlayers.map((player) => (
-                <div
-                  key={player.id}
-                  className="flex items-center justify-between bg-zinc-900 p-3 rounded border-l-4 border-zinc-800 hover:border-yellow-500 transition group"
-                >
-                  <span className="font-bold text-zinc-300 group-hover:text-white">
-                    {player.name}
-                  </span>
-
-                  <form action={deletePlayer.bind(null, player.id)}>
-                    <button className="text-zinc-600 hover:text-red-500 transition px-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                    </button>
-                  </form>
-                </div>
-              ))}
-
-              {allPlayers.length === 0 && (
-                <div className="text-zinc-600 text-center py-8 border-2 border-dashed border-zinc-800 rounded">
-                  Lobby vazio.
-                </div>
-              )}
-            </div>
-          </div>
+        {/* 5. PRÓXIMOS JOGOS (Placeholder) */}
+        <div className="bg-zinc-900/30 border-2 border-dashed border-zinc-800 rounded-xl p-8 text-center opacity-50">
+            <h3 className="text-xl font-bold text-zinc-600">Próximos Jogos</h3>
+            <p className="text-sm text-zinc-700">Histórico em breve...</p>
         </div>
 
       </div>

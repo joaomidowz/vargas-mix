@@ -1,22 +1,38 @@
-// Arquivo: src/components/map-veto.tsx
+// src/components/map-veto.tsx
 'use client'
 
 import { useState } from 'react'
 
-type MapData = {
-    id: string
-    name: string
-    imageUrl: string | null
-}
+type MapData = { id: string; name: string; imageUrl: string | null }
 
 export function MapVeto({ maps }: { maps: MapData[] }) {
     const [bannedMaps, setBannedMaps] = useState<string[]>([])
+    const [turn, setTurn] = useState<'A' | 'B' | null>(null) // Quem está banindo agora?
+    const [winnerMap, setWinnerMap] = useState<MapData | null>(null)
 
-    const toggleBan = (id: string) => {
-        if (bannedMaps.includes(id)) {
-            setBannedMaps(bannedMaps.filter((mapId) => mapId !== id))
+    // Iniciar o Sorteio de Lados
+    const startVeto = () => {
+        setBannedMaps([])
+        setWinnerMap(null)
+        // Randomiza 50/50 quem começa
+        const starter = Math.random() > 0.5 ? 'A' : 'B'
+        setTurn(starter)
+    }
+
+    const handleBan = (map: MapData) => {
+        if (!turn || winnerMap || bannedMaps.includes(map.id)) return
+
+        const newBanned = [...bannedMaps, map.id]
+        setBannedMaps(newBanned)
+
+        // Verifica se sobrou só 1
+        if (newBanned.length === maps.length - 1) {
+            const winner = maps.find(m => !newBanned.includes(m.id))
+            setWinnerMap(winner || null)
+            setTurn(null) // Acabou o jogo
         } else {
-            setBannedMaps([...bannedMaps, id])
+            // Passa a vez
+            setTurn(turn === 'A' ? 'B' : 'A')
         }
     }
 
@@ -24,61 +40,84 @@ export function MapVeto({ maps }: { maps: MapData[] }) {
 
     return (
         <div className="w-full space-y-4">
-            <div className="flex justify-between items-end">
-                <h2 className="text-xl font-semibold text-zinc-300 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500"><circle cx="12" cy="12" r="10" /><line x1="4.93" x2="19.07" y1="4.93" y2="19.07" /></svg>
-                    Fase de Veto
+            {/* HEADER DO VETO */}
+            <div className="flex justify-between items-end border-b border-zinc-800 pb-2">
+                <h2 className="text-xl font-bold text-zinc-300 flex items-center gap-2">
+                    MAP VETO
                 </h2>
-                <span className="text-sm bg-zinc-800 px-3 py-1 rounded-full text-yellow-500 font-mono border border-zinc-700">
-                    Restam: {remaining}
-                </span>
+
+                {/* Mostrador de Turno */}
+                <div className="font-mono text-sm">
+                    {!turn && !winnerMap ? (
+                        <button
+                            onClick={startVeto}
+                            className="bg-zinc-100 hover:bg-white text-black font-bold px-4 py-1 rounded transition animate-pulse"
+                        >
+                            INICIAR SORTEIO DE LADOS
+                        </button>
+                    ) : winnerMap ? (
+                        <span className="text-green-500 font-bold uppercase">MAPA DEFINIDO</span>
+                    ) : (
+                        <div className="flex items-center gap-2 bg-zinc-950 px-3 py-1 rounded border border-zinc-800">
+                            <span className="text-zinc-500 text-xs">BANINDO:</span>
+                            <span className={`font-black text-lg ${turn === 'A' ? 'text-blue-500' : 'text-yellow-500'}`}>
+                                TIME {turn}
+                            </span>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Grid ajustado para aspect-ratio 16/9 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* MENSAGEM DE VITÓRIA DO MAPA */}
+            {winnerMap && (
+                <div className="bg-green-500/20 border border-green-500/50 p-4 rounded text-center animate-in zoom-in duration-300">
+                    <p className="text-green-400 text-sm uppercase tracking-widest mb-1">O MAPA ESCOLHIDO FOI</p>
+                    <p className="text-4xl font-black text-white italic">{winnerMap.name}</p>
+                </div>
+            )}
+
+            {/* GRID DE MAPAS */}
+            <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 ${!turn && !winnerMap ? 'opacity-50 pointer-events-none' : ''}`}>
                 {maps.map((map) => {
                     const isBanned = bannedMaps.includes(map.id)
+                    const isWinner = winnerMap?.id === map.id
 
                     return (
                         <button
                             key={map.id}
-                            onClick={() => toggleBan(map.id)}
-                            // MUDANÇA AQUI: Removemos h-32/h-40 e usamos aspect-video
+                            onClick={() => handleBan(map)}
+                            disabled={isBanned || !!winnerMap}
                             className={`
-                relative w-full aspect-video rounded-lg overflow-hidden border-2 transition-all duration-300 group shadow-lg
+                relative w-full aspect-video rounded-lg overflow-hidden border-2 transition-all duration-300 group
+                ${isWinner ? 'border-green-500 ring-4 ring-green-500/20 scale-105 z-10' : ''}
                 ${isBanned
-                                    ? 'border-red-900/50 scale-95 opacity-40 grayscale'
-                                    : 'border-zinc-800 hover:border-yellow-500/80 hover:scale-[1.02] hover:shadow-yellow-500/20'}
+                                    ? 'border-red-900/30 grayscale opacity-40 cursor-not-allowed'
+                                    : 'border-zinc-800 hover:scale-[1.02] cursor-pointer'}
+                ${!isBanned && !isWinner && turn === 'A' ? 'hover:border-blue-500 hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]' : ''}
+                ${!isBanned && !isWinner && turn === 'B' ? 'hover:border-yellow-500 hover:shadow-[0_0_15px_rgba(234,179,8,0.4)]' : ''}
               `}
                         >
-                            {/* Imagem com fallback caso o caminho esteja errado */}
+                            {/* Imagem */}
                             {map.imageUrl ? (
-                                <img
-                                    src={map.imageUrl}
-                                    alt={map.name}
-                                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                />
+                                <img src={map.imageUrl} alt={map.name} className="absolute inset-0 w-full h-full object-cover" />
                             ) : (
-                                <div className="absolute inset-0 bg-zinc-800 flex items-center justify-center text-zinc-600">Sem Imagem</div>
+                                <div className="absolute inset-0 bg-zinc-800 flex items-center justify-center text-zinc-600">Sem Foto</div>
                             )}
 
+                            {/* Overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
 
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-
-                            <div className="absolute bottom-3 left-0 right-0 text-center">
-                                <span className={`
-                  text-lg font-black tracking-widest uppercase drop-shadow-md
-                  ${isBanned ? 'text-red-400 line-through decoration-4 decoration-red-600' : 'text-white'}
-                `}>
+                            {/* Nome */}
+                            <div className="absolute bottom-2 left-0 right-0 text-center">
+                                <span className={`text-lg font-black tracking-widest uppercase shadow-black drop-shadow-md ${isBanned ? 'text-zinc-600 line-through' : 'text-white'}`}>
                                     {map.name}
                                 </span>
                             </div>
 
+                            {/* Marca de Banido */}
                             {isBanned && (
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none backdrop-blur-[2px]">
-                                    <span className="text-red-600/80 text-7xl font-black rotate-12 drop-shadow-2xl">
-                                        X
-                                    </span>
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-[1px]">
+                                    <span className="text-red-600/80 text-5xl font-black rotate-12">X</span>
                                 </div>
                             )}
                         </button>
@@ -86,14 +125,11 @@ export function MapVeto({ maps }: { maps: MapData[] }) {
                 })}
             </div>
 
-            {bannedMaps.length > 0 && (
-                <div className="flex justify-end">
-                    <button
-                        onClick={() => setBannedMaps([])}
-                        className="text-xs text-zinc-400 hover:text-yellow-500 transition flex items-center gap-1"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12" /></svg>
-                        Resetar Vetos
+            {/* Botão Resetar */}
+            {(bannedMaps.length > 0 || winnerMap) && (
+                <div className="flex justify-center pt-2">
+                    <button onClick={() => { setBannedMaps([]); setTurn(null); setWinnerMap(null); }} className="text-xs text-zinc-500 hover:text-white underline">
+                        Reiniciar Vetos
                     </button>
                 </div>
             )}
