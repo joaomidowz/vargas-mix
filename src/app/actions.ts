@@ -2,9 +2,9 @@
 'use server'
 
 import { db } from "@/lib/db";
-import { players } from "@/db/schema";
+import { players, matches } from "@/db/schema";
 import { revalidatePath } from "next/cache";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 type GameMode = 'RANDOM' | 'VS_VARGAS';
 
@@ -111,4 +111,40 @@ export async function generateTeamsAction(
   }
 
   return { teams, schedule };
+}
+
+export async function saveMatchResultAction(data: {
+  team1Name: string,
+  team2Name: string,
+  score1: number,
+  score2: number,
+  mapName: string,
+  playersIds: string[], // IDs de TODOS que jogaram para atualizar o lastPlayed
+  roster1Names: string, // Nomes formatados do time 1
+  roster2Names: string  // Nomes formatados do time 2
+}) {
+  
+  // 1. Salvar a partida no histórico
+  await db.insert(matches).values({
+    id: crypto.randomUUID(),
+    team1Name: data.team1Name,
+    team2Name: data.team2Name,
+    score1: data.score1,
+    score2: data.score2,
+    mapName: data.mapName,
+    roster1: data.roster1Names,
+    roster2: data.roster2Names,
+  });
+
+  // 2. Atualizar o 'lastPlayed' dos jogadores envolvidos
+  if (data.playersIds.length > 0) {
+    await db.update(players)
+      .set({ 
+        lastPlayed: new Date().toISOString(),
+        matchesPlayed: sql`${players.matchesPlayed} + 1` // Incrementa contador
+      })
+      .where(inArray(players.id, data.playersIds));
+  }
+
+  revalidatePath("/");
 }

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { players, maps } from "@/db/schema";
 import { AddPlayerForm } from "@/components/add-player-form";
 import { LobbyManager } from "@/components/lobby-manager";
+import { MatchHistory } from "@/components/match-history";
 
 export default async function Home() {
   const [allPlayers, allMaps] = await Promise.all([
@@ -40,10 +41,9 @@ export default async function Home() {
             <LobbyManager allPlayers={allPlayers} allMaps={allMaps} />
         </div>
 
-        {/* 5. PRÓXIMOS JOGOS (Placeholder) */}
-        <div className="bg-zinc-900/30 border-2 border-dashed border-zinc-800 rounded-xl p-8 text-center opacity-50">
-            <h3 className="text-xl font-bold text-zinc-600">Próximos Jogos</h3>
-            <p className="text-sm text-zinc-700">Histórico em breve...</p>
+        {/* SEÇÃO FINAL: HISTÓRICO */}
+        <div className="pt-8 border-t border-zinc-900">
+             <MatchHistory />
         </div>
 
       </div>
