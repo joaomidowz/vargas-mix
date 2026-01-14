@@ -170,16 +170,41 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
                                         const score1 = Number(formData.get('score1'));
                                         const score2 = Number(formData.get('score2'));
                                         const mapName = formData.get('mapName') as string;
-                                        let t1Players: Player[] = [], t2Players: Player[] = [];
+
+                                        // --- LÓGICA DE IDENTIFICAÇÃO DE PLAYERS ---
+                                        let t1Players: Player[] = [];
+                                        let t2Players: Player[] = [];
+
                                         if (teams) {
-                                            if (mode === 'VS_VARGAS') { t1Players = teams[0]; t2Players = teams[activeMatchIndex + 1]; }
-                                            else { t1Players = teams[activeMatchIndex * 2]; t2Players = teams[activeMatchIndex * 2 + 1]; }
+                                            if (mode === 'VS_VARGAS') {
+                                                t1Players = teams[0];
+                                                t2Players = teams[activeMatchIndex + 1];
+                                            } else {
+                                                // Random: 
+                                                // Jogo 0 (Index 0) = Teams 0 vs 1
+                                                // Jogo 1 (Index 1) = Teams 2 vs 3
+                                                t1Players = teams[activeMatchIndex * 2];
+                                                t2Players = teams[activeMatchIndex * 2 + 1];
+                                            }
                                         }
+
+                                        const t1Ids = t1Players ? t1Players.map(p => p.id) : [];
+                                        const t2Ids = t2Players ? t2Players.map(p => p.id) : [];
+
                                         await saveMatchResultAction({
-                                            team1Name: currentMatch.team1Name, team2Name: currentMatch.team2Name, score1, score2, mapName, playersIds: selectedIds,
-                                            roster1Names: t1Players ? t1Players.map(p => p.name).join(',') : "", roster2Names: t2Players ? t2Players.map(p => p.name).join(',') : ""
+                                            team1Name: currentMatch.team1Name,
+                                            team2Name: currentMatch.team2Name,
+                                            score1,
+                                            score2,
+                                            mapName,
+                                            team1Ids: t1Ids, // <--- ENVIANDO IDs REAIS DO TIME 1
+                                            team2Ids: t2Ids, // <--- ENVIANDO IDs REAIS DO TIME 2
+                                            roster1Names: t1Players ? t1Players.map(p => p.name).join(',') : "",
+                                            roster2Names: t2Players ? t2Players.map(p => p.name).join(',') : ""
                                         });
-                                        setDecidedMap(null); setActiveMatchIndex(prev => prev + 1);
+
+                                        setDecidedMap(null);
+                                        setActiveMatchIndex(prev => prev + 1);
                                     }}>
                                         <div className="flex flex-col md:flex-row items-end justify-center gap-6">
                                             <div className="w-full md:w-auto">

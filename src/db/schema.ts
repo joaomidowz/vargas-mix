@@ -7,7 +7,13 @@ export const players = sqliteTable('players', {
   name: text('name').notNull(),
   rating: integer('rating').default(3),
   matchesPlayed: integer('matches_played').default(0),
-  lastPlayed: text('last_played'), // Data ISO
+  lastPlayed: text('last_played'),
+  
+  // NOVOS CAMPOS PARA RANKING
+  wins: integer('wins').default(0),
+  losses: integer('losses').default(0),
+  currentStreak: integer('current_streak').default(0), // Sequência atual de vitórias
+  
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -17,17 +23,14 @@ export const maps = sqliteTable('maps', {
   imageUrl: text('image_url').notNull(),
 });
 
-// NOVA TABELA DE PARTIDAS
 export const matches = sqliteTable('matches', {
   id: text('id').primaryKey(),
   date: text('date').default(sql`CURRENT_TIMESTAMP`),
-  mapName: text('map_name'),      // Ex: "Mirage"
-  team1Name: text('team1_name'),  // Ex: "Panela do Vargão"
-  team2Name: text('team2_name'),  // Ex: "Time B"
-  score1: integer('score1'),      // Ex: 13
-  score2: integer('score2'),      // Ex: 11
-  // Guardamos os nomes dos jogadores como JSON string para histórico rápido
-  // Ex: "Fallen, Fer, Cold..."
+  mapName: text('map_name'),
+  team1Name: text('team1_name'),  
+  team2Name: text('team2_name'),  
+  score1: integer('score1'),      
+  score2: integer('score2'),      
   roster1: text('roster1'), 
   roster2: text('roster2'),
-});
+}); 
