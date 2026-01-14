@@ -23,10 +23,28 @@ export async function addPlayer(formData: FormData) {
     revalidatePath("/");
   }
 
-
-
 const hasVargas = (team: typeof players.$inferSelect[]) => 
     team.some(p => p.name.toLowerCase().includes('vargas') || p.name.toLowerCase().includes('vargão'));
+
+function shuffleArray<T>(array: T[]) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+export async function toggleSubAction(id: string) {
+  const player = await db.select().from(players).where(eq(players.id, id)).get();
+  
+  if (!player) return;
+
+  await db.update(players)
+    .set({ isSub: !player.isSub })
+    .where(eq(players.id, id));
+
+  revalidatePath("/");
+}
 
 export async function generateTeamsAction(
   playerIds: string[], 
@@ -34,40 +52,88 @@ export async function generateTeamsAction(
   mode: 'RANDOM' | 'VS_VARGAS' = 'RANDOM'
 ) {
     const allPlayers = await db.select().from(players).where(inArray(players.id, playerIds));
-    const lockedPlayers = allPlayers.filter(p => lockedIds.includes(p.id));
-    const poolPlayers = allPlayers.filter(p => !lockedIds.includes(p.id));
-    for (let i = poolPlayers.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [poolPlayers[i], poolPlayers[j]] = [poolPlayers[j], poolPlayers[i]]; }
-    const teams: typeof allPlayers[] = []; const MAX_PER_TEAM = 5;
-    let teamA = [...lockedPlayers];
-    if ((5 - teamA.length) > 0) teamA = [...teamA, ...poolPlayers.splice(0, 5 - teamA.length)];
-    teams.push(teamA);
-    for (let i = 0; i < poolPlayers.length; i += 5) teams.push(poolPlayers.slice(i, i + 5));
     
+    // 1. Separa quem já está travado (Panela)
+    const lockedPlayers = allPlayers.filter(p => lockedIds.includes(p.id));
+    
+    // 2. Pega o resto (Pool)
+    const remainingPlayers = allPlayers.filter(p => !lockedIds.includes(p.id));
+
+    // 3. Separa SUBS dos NORMAIS
+    const subPlayers = remainingPlayers.filter(p => p.isSub);
+    const normalPlayers = remainingPlayers.filter(p => !p.isSub);
+
+    // 4. Embaralha cada grupo separadamente
+    shuffleArray(subPlayers);
+    shuffleArray(normalPlayers);
+
+    // 5. Junta o Pool: SUBS PRIMEIRO, depois NORMAIS
+    // Isso garante que ao preencher as vagas, os subs entrem antes.
+    const poolPlayers = [...subPlayers, ...normalPlayers];
+
+    // --- LÓGICA DE MONTAGEM DOS TIMES (MANTIDA) ---
+    const teams: typeof allPlayers[] = []; 
+    const MAX_PER_TEAM = 5;
+    
+    let teamA = [...lockedPlayers];
+    
+    // Completa o Time A (Panela) usando o topo do pool (Subs)
+    if ((5 - teamA.length) > 0) {
+        teamA = [...teamA, ...poolPlayers.splice(0, 5 - teamA.length)];
+    }
+    teams.push(teamA);
+    
+    // Cria os outros times com quem sobrou
+    for (let i = 0; i < poolPlayers.length; i += 5) {
+        teams.push(poolPlayers.slice(i, i + 5));
+    }
+    
+    // --- GERA O SCHEDULE (IGUAL) ---
     const schedule = [];
     const getTeamName = (index: number, team: typeof allPlayers) => {
         if (mode === 'VS_VARGAS' && index === 0) return 'PANELA DO VARGÃO';
         if (hasVargas(team)) return `TIME ${String.fromCharCode(65 + index)} (VARGÃO)`;
         return `TIME ${String.fromCharCode(65 + index)}`;
     }
+
     const vargasTeamIndex = teams.findIndex(team => hasVargas(team));
+    
     if (vargasTeamIndex !== -1) {
+        // Modo Desafio ou Vargas Sorteado
         const vargasTeamName = getTeamName(vargasTeamIndex, teams[vargasTeamIndex]);
         let round = 1;
         for (let i = 0; i < teams.length; i++) {
             if (i === vargasTeamIndex) continue;
-            schedule.push({ id: `gauntlet-${round}`, round: round, team1Name: vargasTeamName, team2Name: getTeamName(i, teams[i]), isVargasGame: true, highlight: true });
+            schedule.push({ 
+                id: `gauntlet-${round}`, 
+                round: round, 
+                team1Name: vargasTeamName, 
+                team2Name: getTeamName(i, teams[i]), 
+                isVargasGame: true, 
+                highlight: true 
+            });
             round++;
         }
     } else {
+        // Modo Aleatório sem Vargas
         let roundCounter = 1;
         for (let i = 0; i < teams.length; i += 2) {
             if (i + 1 < teams.length) {
-                const t1Has = hasVargas(teams[i]); const t2Has = hasVargas(teams[i+1]);
-                schedule.push({ id: `match-${roundCounter}`, round: roundCounter, team1Name: getTeamName(i, teams[i]), team2Name: getTeamName(i+1, teams[i+1]), isVargasGame: t1Has || t2Has, highlight: t1Has || t2Has });
+                const t1Has = hasVargas(teams[i]); 
+                const t2Has = hasVargas(teams[i+1]);
+                schedule.push({ 
+                    id: `match-${roundCounter}`, 
+                    round: roundCounter, 
+                    team1Name: getTeamName(i, teams[i]), 
+                    team2Name: getTeamName(i+1, teams[i+1]), 
+                    isVargasGame: t1Has || t2Has, 
+                    highlight: t1Has || t2Has 
+                });
                 roundCounter++;
             }
         }
     }
+    
     return { teams, schedule };
 }
 

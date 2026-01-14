@@ -63,7 +63,7 @@ export default async function Home() {
           {/* ADMIN */}
           <div className="pt-12 pb-4 border-t border-zinc-900 flex flex-col items-center gap-4">
               <p className="text-zinc-600 text-xs text-center">
-                  Vargas Mix System © 2024 - Feito para a Elite
+                  Vargas Mix System © 2026 - by Midowz
               </p>
               <AdminPanel />
           </div>

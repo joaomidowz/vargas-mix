@@ -8,15 +8,17 @@ export const players = sqliteTable('players', {
   rating: integer('rating').default(3),
   matchesPlayed: integer('matches_played').default(0),
   lastPlayed: text('last_played'),
-  
-  // NOVOS CAMPOS PARA RANKING
   wins: integer('wins').default(0),
   losses: integer('losses').default(0),
-  currentStreak: integer('current_streak').default(0), // Sequência atual de vitórias
+  currentStreak: integer('current_streak').default(0),
   
+  // NOVA COLUNA VIP
+  isSub: integer('is_sub', { mode: 'boolean' }).default(false),
+
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
+// ... (resto do arquivo matches e maps continua igual)
 export const maps = sqliteTable('maps', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -33,4 +35,4 @@ export const matches = sqliteTable('matches', {
   score2: integer('score2'),      
   roster1: text('roster1'), 
   roster2: text('roster2'),
-}); 
+});
