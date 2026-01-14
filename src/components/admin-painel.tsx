@@ -61,7 +61,7 @@ export function AdminPanel() {
                 onClick={() => setIsOpen(true)}
                 className="text-xs text-zinc-700 hover:text-red-500 font-mono uppercase tracking-widest border border-transparent hover:border-red-900/30 px-3 py-1 rounded transition"
             >
-                🔒 Área do Vargão (Admin)
+                🔒 Reset Season do Vargão (Admin) 
             </button>
 
             {/* Modal de Senha (Painel Principal) */}
