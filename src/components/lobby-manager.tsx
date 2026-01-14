@@ -4,13 +4,19 @@
 import { useState } from 'react'
 import { generateTeamsAction, deletePlayer, saveMatchResultAction } from '@/app/actions'
 import { MapVeto } from './map-veto'
-import { PlayerList } from './player-list' // <--- IMPORT NOVO
+import { PlayerList } from './player-list'
 
-type Player = { id: string; name: string; rating: number | null }
+type Player = {
+    id: string;
+    name: string;
+    rating: number | null;
+    isSub?: boolean | null;       // Adicionado | null
+    currentStreak?: number | null; // Adicionado | null
+}
 type MapData = { id: string; name: string; imageUrl: string | null }
 type GameMode = 'RANDOM' | 'VS_VARGAS'
 
-// ... (Mantenha o type ScheduleItem igual) ...
+// 1. ATUALIZAMOS O TIPO PARA RECEBER OS ÍNDICES DO BACKEND
 type ScheduleItem = {
     id: string;
     round: number;
@@ -18,6 +24,8 @@ type ScheduleItem = {
     team2Name: string;
     isVargasGame: boolean;
     highlight?: boolean;
+    team1Index: number; // <--- NOVO
+    team2Index: number; // <--- NOVO
 }
 
 export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], allMaps: MapData[] }) {
@@ -35,7 +43,7 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
 
     const vargasPlayer = allPlayers.find(p => p.name.toLowerCase().includes('vargas') || p.name.toLowerCase().includes('vargão'))
 
-    // --- FUNÇÕES DE CONTROLE (Passaremos para o PlayerList) ---
+    // --- FUNÇÕES DE CONTROLE ---
     const handleToggle = (id: string) => {
         selectedIds.includes(id)
             ? (setSelectedIds(selectedIds.filter(p => p !== id)), setLockedIds(lockedIds.filter(p => p !== id)))
@@ -74,8 +82,11 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
         if (selectedIds.length < 2) return alert("Selecione mais jogadores!");
         setIsLoading(true);
         const result = await generateTeamsAction(selectedIds, mode === 'VS_VARGAS' ? lockedIds : [], mode);
-        setTeams(result.teams);
+
+        // @ts-ignore (Garante que o TS não reclame dos índices novos vindo do server)
         setSchedule(result.schedule);
+        setTeams(result.teams);
+
         setActiveMatchIndex(0);
         setDecidedMap(null);
         setIsLoading(false);
@@ -97,7 +108,6 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
                 </button>
             </div>
 
-            {/* --- NOVO COMPONENTE DE LISTA --- */}
             <PlayerList
                 players={allPlayers}
                 selectedIds={selectedIds}
@@ -113,18 +123,16 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
                 {isLoading ? '...' : 'GERAR TIMES & PARTIDAS'}
             </button>
 
-            {/* ... RESTO DO CÓDIGO (ÁREA DE JOGO, TIMES, VETO, CRONOGRAMA) PERMANECE IGUAL ... */}
-            {/* ... (Copie o bloco {teams && ...} do arquivo anterior para cá) ... */}
             {teams && (
                 <div className="mt-8 space-y-8 animate-in slide-in-from-bottom-4">
-                    {/* ... Mantenha o render dos Times, Partida Ativa e Cronograma aqui ... */}
-                    {/* Para poupar espaço na resposta, assumo que você mantém a parte visual de baixo */}
-                    {/* Se precisar eu colo aqui de novo */}
 
+                    {/* VISUALIZAÇÃO DOS TIMES */}
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                         {teams.map((team, index) => {
                             const hasVargasInTeam = team.some(p => p.id === vargasPlayer?.id);
+                            // Destaque visual
                             const isHighlight = (mode === 'VS_VARGAS' && index === 0) || (mode === 'RANDOM' && hasVargasInTeam);
+
                             let displayTitle = `TIME ${getTeamName(index)}`;
                             if (mode === 'VS_VARGAS' && index === 0) displayTitle = "PANELA DO VARGÃO";
                             if (mode === 'RANDOM' && hasVargasInTeam) displayTitle = `TIME ${getTeamName(index)} (VARGÃO)`;
@@ -148,59 +156,60 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
                         })}
                     </div>
 
-                    {/* Resto do código da partida e cronograma... */}
                     {currentMatch ? (
                         <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 space-y-6 shadow-2xl relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
+
+                            {/* HEADER DA PARTIDA */}
                             <div className="flex justify-between items-center border-b border-zinc-800 pb-4">
                                 <h2 className="text-xl font-black text-white italic transform -skew-x-6">PARTIDA EM ANDAMENTO</h2>
                                 <span className="bg-green-500 text-white font-bold px-3 py-1 rounded text-sm animate-pulse">JOGO {activeMatchIndex + 1}</span>
                             </div>
+
+                            {/* PLACAR VISUAL */}
                             <div className="flex items-center justify-center gap-4 md:gap-12">
                                 <div className={`text-right w-1/2 font-black italic text-2xl md:text-3xl ${currentMatch.team1Name.includes('VARGÃO') ? 'text-yellow-500' : 'text-blue-500'}`}>{currentMatch.team1Name}</div>
                                 <span className="text-zinc-700 font-mono text-xl">VS</span>
                                 <div className={`text-left w-1/2 font-black italic text-2xl md:text-3xl ${currentMatch.team2Name.includes('VARGÃO') ? 'text-yellow-500' : 'text-white'}`}>{currentMatch.team2Name}</div>
                             </div>
 
+                            {/* VETO DE MAPAS */}
                             {!decidedMap && <div className="bg-black/20 p-4 rounded-lg border border-zinc-800"><MapVeto key={currentMatch.id} maps={allMaps} team1Name={currentMatch.team1Name} team2Name={currentMatch.team2Name} onMapDecided={(mapName) => setDecidedMap(mapName)} /></div>}
 
+                            {/* FORMULÁRIO DE RESULTADO */}
                             {decidedMap && (
                                 <div className="bg-green-900/10 border border-green-500/30 p-6 rounded-lg animate-in slide-in-from-bottom-4">
+
                                     <form action={async (formData) => {
                                         const score1 = Number(formData.get('score1'));
                                         const score2 = Number(formData.get('score2'));
                                         const mapName = formData.get('mapName') as string;
 
-                                        // --- LÓGICA DE IDENTIFICAÇÃO DE PLAYERS ---
+                                        // 2. CORREÇÃO CRÍTICA: USAR OS ÍNDICES DO BACKEND
+                                        // Não tentamos mais adivinhar. O schedule diz exatamente quem é T1 e T2.
                                         let t1Players: Player[] = [];
                                         let t2Players: Player[] = [];
 
-                                        if (teams) {
-                                            if (mode === 'VS_VARGAS') {
-                                                t1Players = teams[0];
-                                                t2Players = teams[activeMatchIndex + 1];
-                                            } else {
-                                                // Random: 
-                                                // Jogo 0 (Index 0) = Teams 0 vs 1
-                                                // Jogo 1 (Index 1) = Teams 2 vs 3
-                                                t1Players = teams[activeMatchIndex * 2];
-                                                t2Players = teams[activeMatchIndex * 2 + 1];
-                                            }
+                                        if (teams && currentMatch) {
+                                            const idx1 = currentMatch.team1Index;
+                                            const idx2 = currentMatch.team2Index;
+
+                                            // Segurança: Garante que os índices existem
+                                            if (teams[idx1]) t1Players = teams[idx1];
+                                            if (teams[idx2]) t2Players = teams[idx2];
                                         }
 
-                                        const t1Ids = t1Players ? t1Players.map(p => p.id) : [];
-                                        const t2Ids = t2Players ? t2Players.map(p => p.id) : [];
+                                        const t1Ids = t1Players.map(p => p.id);
+                                        const t2Ids = t2Players.map(p => p.id);
 
                                         await saveMatchResultAction({
                                             team1Name: currentMatch.team1Name,
                                             team2Name: currentMatch.team2Name,
-                                            score1,
-                                            score2,
-                                            mapName,
-                                            team1Ids: t1Ids, // <--- ENVIANDO IDs REAIS DO TIME 1
-                                            team2Ids: t2Ids, // <--- ENVIANDO IDs REAIS DO TIME 2
-                                            roster1Names: t1Players ? t1Players.map(p => p.name).join(',') : "",
-                                            roster2Names: t2Players ? t2Players.map(p => p.name).join(',') : ""
+                                            score1, score2, mapName,
+                                            team1Ids: t1Ids,
+                                            team2Ids: t2Ids,
+                                            roster1Names: t1Players.map(p => p.name).join(','),
+                                            roster2Names: t2Players.map(p => p.name).join(',')
                                         });
 
                                         setDecidedMap(null);
@@ -230,6 +239,7 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
                         </div>
                     )}
 
+                    {/* CRONOGRAMA */}
                     {schedule.length > 0 && (
                         <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900/30">
                             <button onClick={() => setShowSchedule(!showSchedule)} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition text-left">

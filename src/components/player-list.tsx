@@ -9,8 +9,8 @@ type Player = {
     id: string; 
     name: string; 
     rating: number | null; 
-    currentStreak?: number;
-    isSub?: boolean;
+    isSub?: boolean | null;       
+    currentStreak?: number | null;  
 }
 type GameMode = 'RANDOM' | 'VS_VARGAS'
 

@@ -47,54 +47,37 @@ export async function toggleSubAction(id: string) {
 }
 
 const sortByTime = (a: typeof players.$inferSelect, b: typeof players.$inferSelect) => {
-    if (!a.lastPlayed && !b.lastPlayed) return 0.5 - Math.random(); // Ambos novos? Sorteia
-    if (!a.lastPlayed) return -1; // A nunca jogou -> A primeiro
-    if (!b.lastPlayed) return 1;  // B nunca jogou -> B primeiro
-    return a.lastPlayed.localeCompare(b.lastPlayed); // Data mais antiga primeiro
+    if (!a.lastPlayed && !b.lastPlayed) return 0.5 - Math.random(); 
+    if (!a.lastPlayed) return -1; 
+    if (!b.lastPlayed) return 1;  
+    return a.lastPlayed.localeCompare(b.lastPlayed); 
 }
 
+// --- GERAÇÃO DE TIMES CORRIGIDA ---
 export async function generateTeamsAction(
   playerIds: string[], 
   lockedIds: string[] = [], 
   mode: 'RANDOM' | 'VS_VARGAS' = 'RANDOM'
 ) {
     const allPlayers = await db.select().from(players).where(inArray(players.id, playerIds));
-    
-    // 1. Separa a Panela (Travados)
     const lockedPlayers = allPlayers.filter(p => lockedIds.includes(p.id));
-    
-    // 2. Pega o resto
     const remainingPlayers = allPlayers.filter(p => !lockedIds.includes(p.id));
 
-    // 3. Separa SUBS dos NORMAIS
+    // Ordenação e Separação (Subs e Tempo)
     const subPlayers = remainingPlayers.filter(p => p.isSub);
     const normalPlayers = remainingPlayers.filter(p => !p.isSub);
-
-    // 4. ORDENAÇÃO POR TEMPO (ROTAÇÃO JUSTA)
-    // Em vez de shuffleArray, usamos o sort
-    subPlayers.sort(sortByTime);    // Subs que esperaram mais entram primeiro entre os subs
-    normalPlayers.sort(sortByTime); // Normais que esperaram mais entram primeiro entre os normais
-
-    // 5. Junta o Pool: SUBS PRIMEIRO, depois NORMAIS
+    subPlayers.sort(sortByTime);    
+    normalPlayers.sort(sortByTime); 
     const poolPlayers = [...subPlayers, ...normalPlayers];
 
-    // --- DAQUI PRA BAIXO TUDO IGUAL ---
+    // Montagem dos Times
     const teams: typeof allPlayers[] = []; 
-    
     let teamA = [...lockedPlayers];
-    
-    // Completa o Time A
-    if ((5 - teamA.length) > 0) {
-        teamA = [...teamA, ...poolPlayers.splice(0, 5 - teamA.length)];
-    }
+    if ((5 - teamA.length) > 0) teamA = [...teamA, ...poolPlayers.splice(0, 5 - teamA.length)];
     teams.push(teamA);
+    for (let i = 0; i < poolPlayers.length; i += 5) teams.push(poolPlayers.slice(i, i + 5));
     
-    // Cria os outros times na ordem da fila
-    for (let i = 0; i < poolPlayers.length; i += 5) {
-        teams.push(poolPlayers.slice(i, i + 5));
-    }
-    
-    // --- GERA O SCHEDULE ---
+    // --- GERA O SCHEDULE COM ÍNDICES ---
     const schedule = [];
     const getTeamName = (index: number, team: typeof allPlayers) => {
         if (mode === 'VS_VARGAS' && index === 0) return 'PANELA DO VARGÃO';
@@ -104,34 +87,46 @@ export async function generateTeamsAction(
 
     const vargasTeamIndex = teams.findIndex(team => hasVargas(team));
     
+    // LÓGICA: SE TEM VARGAS, É ELE CONTRA O MUNDO
     if (vargasTeamIndex !== -1) {
         const vargasTeamName = getTeamName(vargasTeamIndex, teams[vargasTeamIndex]);
         let round = 1;
+        
         for (let i = 0; i < teams.length; i++) {
-            if (i === vargasTeamIndex) continue;
+            if (i === vargasTeamIndex) continue; // Não joga contra si mesmo
+
             schedule.push({ 
                 id: `gauntlet-${round}`, 
                 round: round, 
                 team1Name: vargasTeamName, 
                 team2Name: getTeamName(i, teams[i]), 
+                
+                // 👇 AQUI ESTÁ A CORREÇÃO: ENVIAMOS O ÍNDICE CORRETO
+                team1Index: vargasTeamIndex, 
+                team2Index: i,
+                
                 isVargasGame: true, 
                 highlight: true 
             });
             round++;
         }
     } else {
+        // Modo sem Vargas (Padrão)
         let roundCounter = 1;
         for (let i = 0; i < teams.length; i += 2) {
             if (i + 1 < teams.length) {
-                const t1Has = hasVargas(teams[i]); 
-                const t2Has = hasVargas(teams[i+1]);
                 schedule.push({ 
                     id: `match-${roundCounter}`, 
                     round: roundCounter, 
                     team1Name: getTeamName(i, teams[i]), 
-                    team2Name: getTeamName(i+1, teams[i+1]), 
-                    isVargasGame: t1Has || t2Has, 
-                    highlight: t1Has || t2Has 
+                    team2Name: getTeamName(i+1, teams[i+1]),
+                    
+                    // 👇 ÍNDICES PADRÃO
+                    team1Index: i,
+                    team2Index: i+1,
+                    
+                    isVargasGame: false, 
+                    highlight: false 
                 });
                 roundCounter++;
             }
