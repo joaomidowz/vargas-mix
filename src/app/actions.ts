@@ -46,6 +46,13 @@ export async function toggleSubAction(id: string) {
   revalidatePath("/");
 }
 
+const sortByTime = (a: typeof players.$inferSelect, b: typeof players.$inferSelect) => {
+    if (!a.lastPlayed && !b.lastPlayed) return 0.5 - Math.random(); // Ambos novos? Sorteia
+    if (!a.lastPlayed) return -1; // A nunca jogou -> A primeiro
+    if (!b.lastPlayed) return 1;  // B nunca jogou -> B primeiro
+    return a.lastPlayed.localeCompare(b.lastPlayed); // Data mais antiga primeiro
+}
+
 export async function generateTeamsAction(
   playerIds: string[], 
   lockedIds: string[] = [], 
@@ -53,42 +60,41 @@ export async function generateTeamsAction(
 ) {
     const allPlayers = await db.select().from(players).where(inArray(players.id, playerIds));
     
-    // 1. Separa quem já está travado (Panela)
+    // 1. Separa a Panela (Travados)
     const lockedPlayers = allPlayers.filter(p => lockedIds.includes(p.id));
     
-    // 2. Pega o resto (Pool)
+    // 2. Pega o resto
     const remainingPlayers = allPlayers.filter(p => !lockedIds.includes(p.id));
 
     // 3. Separa SUBS dos NORMAIS
     const subPlayers = remainingPlayers.filter(p => p.isSub);
     const normalPlayers = remainingPlayers.filter(p => !p.isSub);
 
-    // 4. Embaralha cada grupo separadamente
-    shuffleArray(subPlayers);
-    shuffleArray(normalPlayers);
+    // 4. ORDENAÇÃO POR TEMPO (ROTAÇÃO JUSTA)
+    // Em vez de shuffleArray, usamos o sort
+    subPlayers.sort(sortByTime);    // Subs que esperaram mais entram primeiro entre os subs
+    normalPlayers.sort(sortByTime); // Normais que esperaram mais entram primeiro entre os normais
 
     // 5. Junta o Pool: SUBS PRIMEIRO, depois NORMAIS
-    // Isso garante que ao preencher as vagas, os subs entrem antes.
     const poolPlayers = [...subPlayers, ...normalPlayers];
 
-    // --- LÓGICA DE MONTAGEM DOS TIMES (MANTIDA) ---
+    // --- DAQUI PRA BAIXO TUDO IGUAL ---
     const teams: typeof allPlayers[] = []; 
-    const MAX_PER_TEAM = 5;
     
     let teamA = [...lockedPlayers];
     
-    // Completa o Time A (Panela) usando o topo do pool (Subs)
+    // Completa o Time A
     if ((5 - teamA.length) > 0) {
         teamA = [...teamA, ...poolPlayers.splice(0, 5 - teamA.length)];
     }
     teams.push(teamA);
     
-    // Cria os outros times com quem sobrou
+    // Cria os outros times na ordem da fila
     for (let i = 0; i < poolPlayers.length; i += 5) {
         teams.push(poolPlayers.slice(i, i + 5));
     }
     
-    // --- GERA O SCHEDULE (IGUAL) ---
+    // --- GERA O SCHEDULE ---
     const schedule = [];
     const getTeamName = (index: number, team: typeof allPlayers) => {
         if (mode === 'VS_VARGAS' && index === 0) return 'PANELA DO VARGÃO';
@@ -99,7 +105,6 @@ export async function generateTeamsAction(
     const vargasTeamIndex = teams.findIndex(team => hasVargas(team));
     
     if (vargasTeamIndex !== -1) {
-        // Modo Desafio ou Vargas Sorteado
         const vargasTeamName = getTeamName(vargasTeamIndex, teams[vargasTeamIndex]);
         let round = 1;
         for (let i = 0; i < teams.length; i++) {
@@ -115,7 +120,6 @@ export async function generateTeamsAction(
             round++;
         }
     } else {
-        // Modo Aleatório sem Vargas
         let roundCounter = 1;
         for (let i = 0; i < teams.length; i += 2) {
             if (i + 1 < teams.length) {
