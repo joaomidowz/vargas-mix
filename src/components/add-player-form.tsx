@@ -2,7 +2,7 @@
 'use client'
 
 import { useRef } from 'react'
-import { addPlayer } from '@/app/actions' // Importamos a Server Action
+import { addPlayer } from '@/app/actions'
 import { SubmitButton } from './submit-button'
 
 export function AddPlayerForm() {
@@ -12,9 +12,7 @@ export function AddPlayerForm() {
     <form
       ref={formRef}
       action={async (formData) => {
-        // Executa a ação do servidor
         await addPlayer(formData)
-        // Limpa o formulário no navegador
         formRef.current?.reset()
       }}
       className="flex gap-2"

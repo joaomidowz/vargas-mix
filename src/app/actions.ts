@@ -148,3 +148,10 @@ export async function saveMatchResultAction(data: {
 
   revalidatePath("/");
 }
+
+// Adicione ao final de src/app/actions.ts
+
+export async function deleteMatchAction(matchId: string) {
+  await db.delete(matches).where(eq(matches.id, matchId));
+  revalidatePath("/");
+}
