@@ -54,7 +54,7 @@ Siga estes passos para rodar o projeto na sua máquina:
 
 1.  **Clone o repositório:**
     ```bash
-    git clone [https://github.com/SEU_USUARIO/vargas-mix.git](https://github.com/SEU_USUARIO/vargas-mix.git)
+    git clone [https://github.com/joaomidowz/vargas-mix.git](https://github.com/joaomidowz/vargas-mix.git)
     cd vargas-mix
     ```
 
