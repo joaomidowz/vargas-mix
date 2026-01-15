@@ -17,10 +17,17 @@ export default async function Home() {
     db.select().from(matches).orderBy(desc(matches.date)).limit(20)
   ]);
 
-  const transformedPlayers = allPlayers.map(player => ({
-    ...player,
-    isSub: player.isSub ?? undefined
-  }));
+  const transformedPlayers = allPlayers
+    .filter(player => player.rating !== null)
+    .map(player => ({
+      ...player,
+      rating: player.rating ?? 0,
+      matchesPlayed: player.matchesPlayed ?? 0,
+      wins: player.wins ?? 0,
+      losses: player.losses ?? 0,
+      currentStreak: player.currentStreak ?? 0,
+      isSub: player.isSub ?? undefined
+    }));
 
   return (
     // ENVELOPAMOS TUDO COM O AUTH GATE

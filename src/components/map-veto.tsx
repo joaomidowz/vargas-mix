@@ -9,7 +9,7 @@ export function MapVeto({
   maps, 
   team1Name, 
   team2Name,
-  onMapDecided // <--- NOVA PROPRIEDADE: Avisa quando acabou
+  onMapDecided
 }: { 
   maps: MapData[], 
   team1Name: string, 
@@ -20,7 +20,7 @@ export function MapVeto({
   const [turn, setTurn] = useState<'A' | 'B' | null>(null)
   const [winnerMap, setWinnerMap] = useState<MapData | null>(null)
 
-  // Quando houver um vencedor, avisa o componente pai
+  // Quando houver um vencedor, avisa o pai
   useEffect(() => {
     if (winnerMap) {
         onMapDecided(winnerMap.name)
@@ -65,7 +65,6 @@ export function MapVeto({
       )
   }
 
-  // Renderização normal do Veto
   const currentBannerName = turn === 'A' ? team1Name : team2Name;
   const currentBannerColor = turn === 'A' ? 'text-blue-400' : 'text-yellow-500';
 
@@ -75,7 +74,7 @@ export function MapVeto({
         <h2 className="text-xl font-bold text-zinc-300">MAP VETO</h2>
         <div className="font-mono text-sm">
             {!turn ? (
-                <button onClick={startVeto} className="bg-zinc-100 hover:bg-white text-black font-bold px-4 py-1 rounded animate-pulse">
+                <button onClick={startVeto} className="bg-zinc-100 hover:bg-white text-black font-bold px-4 py-1 rounded animate-pulse transition-transform hover:scale-105">
                     INICIAR VETO
                 </button>
             ) : (
@@ -89,7 +88,7 @@ export function MapVeto({
         </div>
       </div>
 
-      <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 ${!turn ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 ${!turn ? 'opacity-50 pointer-events-none blur-[1px]' : ''} transition-all`}>
         {maps.map((map) => {
           const isBanned = bannedMaps.includes(map.id)
           return (
@@ -97,12 +96,12 @@ export function MapVeto({
               key={map.id}
               onClick={() => handleBan(map)}
               disabled={isBanned}
-              className={`relative w-full aspect-video rounded-lg overflow-hidden border-2 transition-all ${isBanned ? 'border-red-900/30 grayscale opacity-40' : 'border-zinc-800 hover:scale-[1.02] hover:border-zinc-500'}`}
+              className={`relative w-full aspect-video rounded-lg overflow-hidden border-2 transition-all duration-300 ${isBanned ? 'border-red-900/30 grayscale opacity-40 scale-95' : 'border-zinc-800 hover:scale-[1.02] hover:border-zinc-500 hover:shadow-lg'}`}
             >
-              {map.imageUrl ? <img src={map.imageUrl} className="absolute inset-0 w-full h-full object-cover" /> : <div className="bg-zinc-800 absolute inset-0"/>}
-              <div className="absolute inset-0 bg-black/40" />
+              {map.imageUrl ? <img src={map.imageUrl} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 hover:scale-110" /> : <div className="bg-zinc-800 absolute inset-0"/>}
+              <div className="absolute inset-0 bg-black/40 hover:bg-black/20 transition-colors" />
               <div className="absolute bottom-2 left-0 right-0 text-center"><span className={`text-lg font-black uppercase shadow-black drop-shadow-md text-white ${isBanned && 'line-through text-zinc-500'}`}>{map.name}</span></div>
-              {isBanned && <div className="absolute inset-0 flex items-center justify-center"><span className="text-red-600/80 text-5xl font-black">X</span></div>}
+              {isBanned && <div className="absolute inset-0 flex items-center justify-center animate-in zoom-in duration-200"><span className="text-red-600/80 text-5xl font-black">X</span></div>}
             </button>
           )
         })}
