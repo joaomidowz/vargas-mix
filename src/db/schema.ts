@@ -36,3 +36,9 @@ export const matches = sqliteTable('matches', {
   roster1: text('roster1'), 
   roster2: text('roster2'),
 });
+
+export const tournamentState = sqliteTable("tournament_state", {
+  id: integer("id").primaryKey(), // Sempre será 1
+  data: text("data"), // Aqui vai o JSON com times, bracket, placar, etc
+  updatedAt: text("updated_at"),
+});

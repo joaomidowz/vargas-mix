@@ -2,7 +2,7 @@
 'use server'
 
 import { db } from "@/lib/db";
-import { players, matches } from "@/db/schema";
+import { players, matches, tournamentState } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq, inArray, sql } from "drizzle-orm";
 
@@ -228,4 +228,27 @@ export async function saveMatchResultAction(data: {
         }).where(inArray(players.id, data.team2Ids));
   }
   revalidatePath("/");
+}
+
+// ADMIN USA: Salva o estado do jogo no banco
+export async function saveTournamentStateAction(jsonState: string) {
+    const existing = await db.select().from(tournamentState).where(eq(tournamentState.id, 1)).get();
+    
+    if (existing) {
+        await db.update(tournamentState)
+            .set({ data: jsonState, updatedAt: new Date().toISOString() })
+            .where(eq(tournamentState.id, 1));
+    } else {
+        await db.insert(tournamentState)
+            .values({ id: 1, data: jsonState, updatedAt: new Date().toISOString() });
+    }
+    // Isso faz a tela de todo mundo atualizar
+    revalidatePath("/"); 
+    revalidatePath("/admin");
+}
+
+// PÚBLICO USA: Lê o estado do jogo
+export async function getTournamentStateAction() {
+    const result = await db.select().from(tournamentState).where(eq(tournamentState.id, 1)).get();
+    return result ? result.data : null;
 }
