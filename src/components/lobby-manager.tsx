@@ -1,17 +1,14 @@
 // src/components/lobby-manager.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react' // <--- useEffect é essencial aqui
 import { generateTeamsAction, deletePlayer } from '@/app/actions'
 import { LobbySetup } from './lobby/lobby-setup'
 import { MatchRunner } from './lobby/match-runner'
 import { TournamentBracket } from './lobby/tournament-bracket'
 
-type Player = {
-    id: string; name: string; rating: number;
-    isSub?: boolean; currentStreak?: number;
-    wins?: number | null;
-}
+// ... (Types e Helper getTeamDisplayName mantidos IGUAIS) ...
+type Player = { id: string; name: string; rating: number; isSub?: boolean; currentStreak?: number; wins?: number | null; }
 type MapData = { id: string; name: string; imageUrl: string | null }
 type GameMode = 'RANDOM' | 'VS_VARGAS' | 'BRACKET' | '1V1'
 type ScheduleItem = { id: string; round: number; team1Name: string; team2Name: string; team1Index: number; team2Index: number; isVargasGame: boolean; }
@@ -25,10 +22,13 @@ function getTeamDisplayName(team: Player[] | null, defaultName: string) {
 }
 
 export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], allMaps: MapData[] }) {
+    // --- ESTADOS ---
     const [selectedIds, setSelectedIds] = useState<string[]>([])
     const [lockedIds, setLockedIds] = useState<string[]>([])
     const [mode, setMode] = useState<GameMode>('RANDOM')
     const [isLoading, setIsLoading] = useState(false)
+
+    // Estados do Jogo Ativo
     const [teams, setTeams] = useState<Player[][] | null>(null)
     const [schedule, setSchedule] = useState<ScheduleItem[]>([])
     const [activeMatchIndex, setActiveMatchIndex] = useState(0)
@@ -37,6 +37,50 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
 
     const vargasPlayer = allPlayers.find(p => p.name.toLowerCase().includes('vargas') || p.name.toLowerCase().includes('vargão'))
 
+    // --- 1. EFEITO PARA CARREGAR O JOGO SALVO AO ABRIR ---
+    useEffect(() => {
+        const savedGame = localStorage.getItem('vargas-mix-save');
+        if (savedGame) {
+            try {
+                const parsed = JSON.parse(savedGame);
+                // Só restaura se tiver times gerados
+                if (parsed.teams && parsed.teams.length > 0) {
+                    setTeams(parsed.teams);
+                    setSchedule(parsed.schedule);
+                    setActiveMatchIndex(parsed.activeMatchIndex);
+                    setDecidedMap(parsed.decidedMap);
+                    setBracketWinners(parsed.bracketWinners);
+                    setMode(parsed.mode);
+                    setSelectedIds(parsed.selectedIds || []);
+                    setLockedIds(parsed.lockedIds || []);
+                }
+            } catch (e) {
+                console.error("Erro ao carregar save:", e);
+                localStorage.removeItem('vargas-mix-save'); // Limpa se estiver corrompido
+            }
+        }
+    }, []);
+
+    // --- 2. EFEITO PARA SALVAR AUTOMATICAMENTE A CADA MUDANÇA ---
+    useEffect(() => {
+        // Só salva se o jogo já começou (teams existe)
+        if (teams) {
+            const gameState = {
+                teams,
+                schedule,
+                activeMatchIndex,
+                decidedMap,
+                bracketWinners,
+                mode,
+                selectedIds,
+                lockedIds
+            };
+            localStorage.setItem('vargas-mix-save', JSON.stringify(gameState));
+        }
+    }, [teams, schedule, activeMatchIndex, decidedMap, bracketWinners, mode, selectedIds, lockedIds]);
+
+
+    // --- HANDLERS ---
     const handleToggle = (id: string) => { selectedIds.includes(id) ? (setSelectedIds(selectedIds.filter(p => p !== id)), setLockedIds(lockedIds.filter(p => p !== id))) : setSelectedIds([...selectedIds, id]) }
     const handleSelectAll = () => { selectedIds.length === allPlayers.length ? setSelectedIds([]) : setSelectedIds(allPlayers.map(p => p.id)) }
     const handleDeletePlayer = async (id: string) => await deletePlayer(id)
@@ -50,17 +94,27 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
         if (!vargasPlayer) return alert("Cadastre 'Vargas' primeiro!");
         setMode('VS_VARGAS');
         if (!selectedIds.includes(vargasPlayer.id)) setSelectedIds(prev => [...prev, vargasPlayer.id]);
-        setLockedIds([vargasPlayer.id]); resetGame();
+        setLockedIds([vargasPlayer.id]);
+        // Não chamamos resetGame aqui direto para não apagar o save se foi um clique acidental, 
+        // mas a UI vai mudar para o Setup e o usuario vai clicar em gerar dnv
+        setTeams(null);
     }
 
+    // --- 3. RESET AGORA LIMPA O STORAGE TAMBÉM ---
     const resetGame = () => {
-        setTeams(null); setSchedule([]); setActiveMatchIndex(0); setDecidedMap(null);
+        if (!confirm("Tem certeza? Isso vai apagar o progresso atual.")) return;
+
+        localStorage.removeItem('vargas-mix-save'); // <--- AQUI A MÁGICA
+
+        setTeams(null);
+        setSchedule([]);
+        setActiveMatchIndex(0);
+        setDecidedMap(null);
         setBracketWinners({ semi1: null, semi2: null, champion: null });
     }
 
-    // --- 👇 FUNÇÃO NOVA QUE FALTAVA 👇 ---
     const handleRedoVeto = () => {
-        setDecidedMap(null); // Limpa o mapa escolhido, forçando o Veto a aparecer de novo
+        setDecidedMap(null);
     }
 
     const handleGenerate = async () => {
@@ -90,9 +144,15 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
                 <div className="space-y-8 animate-in slide-in-from-bottom-4">
 
                     <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                        <span className="text-zinc-500 text-xs uppercase tracking-widest font-bold">Modo: {mode}</span>
+                        <span className="text-zinc-500 text-xs uppercase tracking-widest font-bold flex items-center gap-2">
+                            Modo: {mode}
+                            {/* Indicador visual de que está salvo */}
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Jogo Salvo Automaticamente"></span>
+                        </span>
+
                         <button onClick={resetGame} className="text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded transition flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg> Refazer Sorteio
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+                            Novo Sorteio (Reset)
                         </button>
                     </div>
 
@@ -133,7 +193,6 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
                             currentMatch={currentMatch} teams={teams} allMaps={allMaps} activeMatchIndex={activeMatchIndex}
                             decidedMap={decidedMap} bracketWinners={bracketWinners} mode={mode}
                             setDecidedMap={setDecidedMap} setBracketWinners={setBracketWinners}
-                            // 👇 AQUI ESTAVA O ERRO! AGORA CHAMAMOS A FUNÇÃO CORRETA 👇
                             onRedoVeto={handleRedoVeto}
                             onMatchComplete={(winnerTeam) => {
                                 setDecidedMap(null);
@@ -160,11 +219,12 @@ export function LobbyManager({ allPlayers, allMaps }: { allPlayers: Player[], al
                                 </>
                             )}
                             <button onClick={resetGame} className="mt-8 bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 px-8 rounded shadow-lg uppercase tracking-wider transition">
-                                Novo Sorteio
+                                Novo Sorteio (Reset)
                             </button>
                         </div>
                     )}
 
+                    {/* ... (Cronograma mantido igual) ... */}
                     {schedule.length > 0 && (
                         <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900/30 p-4 mt-8">
                             <p className="text-xs font-bold text-zinc-500 uppercase mb-3">Histórico de Partidas</p>
