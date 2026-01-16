@@ -10,6 +10,8 @@ import { AdminPanel } from "@/components/admin-painel";
 import { AuthGate } from "@/components/auth-gate";
 import Link from "next/link";
 import { getTournamentStateAction } from "@/app/actions"; // <--- 1. IMPORT NECESSÁRIO
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function AdminPage() {
     // 2. BUSCAR DADOS DO BANCO (Incluindo o save do torneio)
@@ -46,7 +48,7 @@ export default async function AdminPage() {
                             MANAGER SYSTEM V2.0
                         </p>
                     </div>
-                    
+
                     <Link href="/" className="group flex items-center gap-2 text-xs font-bold bg-zinc-900 text-zinc-500 px-4 py-2 rounded-full border border-zinc-800 hover:border-yellow-500 hover:text-yellow-500 transition">
                         <span className="group-hover:-translate-x-1 transition-transform">←</span>
                         <span>Voltar Área Spec</span>
@@ -65,8 +67,8 @@ export default async function AdminPage() {
 
                     {/* LOBBY MANAGER */}
                     <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 min-h-[300px]">
-                        <LobbyManager 
-                            allPlayers={transformedPlayers} 
+                        <LobbyManager
+                            allPlayers={transformedPlayers}
                             allMaps={allMaps}
                             initialState={tournamentState} // <--- 3. PASSA O ESTADO AQUI
                         />
